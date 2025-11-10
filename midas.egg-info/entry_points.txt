@@ -1,0 +1,2 @@
+[console_scripts]
+midas = app.main:main

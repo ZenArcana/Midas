@@ -1,0 +1,52 @@
+def adjust_brush():
+    if event.value is None:
+        return
+
+    subprocess_module = __import__("subprocess")
+    shutil_module = __import__("shutil")
+
+    state = node.config.setdefault("_krita_brush_size_state", {})
+    last_value = state.get("last_value")
+    current_value = int(event.value)
+
+    if last_value is None:
+        state["last_value"] = current_value
+        return
+
+    delta = current_value - last_value
+
+    wrap_threshold = 64  # tweak if your encoder wraps differently
+    if delta > wrap_threshold:
+        delta -= 128
+    elif delta < -wrap_threshold:
+        delta += 128
+
+    if delta == 0:
+        return
+
+    xdotool_path = shutil_module.which("xdotool")
+    if xdotool_path is None:
+        print("Krita brush script action: xdotool not found on PATH")
+        state["last_value"] = current_value
+        return
+
+    repeat = abs(delta)
+    key = "bracketright" if delta > 0 else "bracketleft"
+
+    subprocess_module.run(
+        [
+            xdotool_path,
+            "key",
+            "--repeat",
+            str(repeat),
+            "--delay",
+            "5",
+            key,
+        ],
+        check=False,
+    )
+
+    state["last_value"] = current_value
+
+
+adjust_brush()

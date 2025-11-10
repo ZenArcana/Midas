@@ -1,0 +1,2 @@
+[console_scripts]
+midi-macro-board = app.main:main
