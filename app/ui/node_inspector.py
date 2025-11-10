@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtCore import Qt, Signal
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QFileDialog,
     QPlainTextEdit,
     QPushButton,
     QFrame,
@@ -137,6 +139,8 @@ class NodeInspector(QGroupBox):
                 self._build_script_editor(node)
             elif node.type == "action.shortcut":
                 self._build_shortcut_editor(node)
+            elif node.type == "action.sound":
+                self._build_sound_editor(node)
             else:
                 self._content_layout.addWidget(QLabel("No editable properties for this node."))
 
@@ -485,6 +489,102 @@ class NodeInspector(QGroupBox):
         form.addRow("", hint)
 
         self._build_trigger_filter_section(node)
+
+    def _build_sound_editor(self, node: Node) -> None:
+        form = QFormLayout()
+        container = QWidget(self)
+        container.setLayout(form)
+        self._content_layout.addWidget(container)
+
+        path_row = QHBoxLayout()
+        path_edit = QLineEdit()
+        path_edit.setPlaceholderText("/path/to/sample.wav")
+        current_path = str(node.config.get("file") or node.config.get("path") or "")
+        path_edit.setText(current_path)
+
+        browse_button = QPushButton("Browse…")
+        browse_button.clicked.connect(lambda: self._handle_sound_browse(node, path_edit))
+
+        path_edit.editingFinished.connect(lambda: self._handle_sound_path_changed(node, path_edit))
+
+        path_row.addWidget(path_edit)
+        path_row.addWidget(browse_button)
+        form.addRow("Audio file", path_row)
+
+        trigger_spin = QSpinBox()
+        trigger_spin.setRange(-1, 127)
+        trigger_spin.setSpecialValueText("Any value")
+        trigger_value = node.config.get("trigger_value")
+        trigger_spin.setValue(int(trigger_value) if trigger_value is not None else -1)
+        trigger_spin.valueChanged.connect(
+            lambda value: self._set_optional_int_config(node, "trigger_value", value)
+        )
+        form.addRow("Trigger value", trigger_spin)
+
+        min_spin = QSpinBox()
+        min_spin.setRange(-1, 127)
+        min_spin.setSpecialValueText("Disabled")
+        min_value = node.config.get("min_value")
+        min_spin.setValue(int(min_value) if min_value is not None else -1)
+        min_spin.valueChanged.connect(
+            lambda value: self._set_optional_int_config(node, "min_value", value)
+        )
+        form.addRow("Minimum value", min_spin)
+
+        note_off_checkbox = QCheckBox("Trigger on note-off messages")
+        note_off_checkbox.setChecked(bool(node.config.get("trigger_on_note_off")))
+        note_off_checkbox.toggled.connect(
+            lambda checked: self._set_config_value(node, "trigger_on_note_off", bool(checked))
+        )
+        form.addRow("", note_off_checkbox)
+
+        info_label = QLabel(
+            "Leaves trigger/min filters optional. Control profile filters from the section below."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: palette(mid);")
+        form.addRow("", info_label)
+
+        self._build_trigger_filter_section(node)
+
+    def _handle_sound_path_changed(self, node: Node, edit: QLineEdit) -> None:
+        if self._is_updating:
+            return
+        value = edit.text().strip()
+        if not value:
+            if "file" in node.config:
+                node.config["file"] = ""
+                self._emit_config_changed(node.id)
+            if "path" in node.config:
+                node.config["path"] = ""
+                self._emit_config_changed(node.id)
+            return
+        self._set_config_value(node, "file", value)
+        if node.config.get("path") not in ("", value):
+            self._set_config_value(node, "path", value)
+
+    def _handle_sound_browse(self, node: Node, edit: QLineEdit) -> None:
+        options = QFileDialog.Options()
+        start_dir = Path(edit.text().strip() or str(Path.home()))
+        directory = str(start_dir if start_dir.is_dir() else start_dir.parent)
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select audio file",
+            directory,
+            "Audio Files (*.wav *.mp3 *.ogg *.flac *.aiff *.aif *.oga);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            edit.setText(file_path)
+            self._handle_sound_path_changed(node, edit)
+
+    def _set_optional_int_config(self, node: Node, key: str, value: int) -> None:
+        if value < 0:
+            removed = node.config.pop(key, None)
+            if removed is not None:
+                self._emit_config_changed(node.id)
+            return
+        self._set_config_value(node, key, int(value))
 
     def _handle_device_changed(self, index: int) -> None:
         if self._is_updating:

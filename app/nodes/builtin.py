@@ -94,6 +94,20 @@ _TEMPLATES: List[NodeTemplate] = [
         output_ports=[],
         default_config={"command": "", "shell": False, "cwd": ""},
     ),
+    NodeTemplate(
+        type="action.sound",
+        title="Sound Effect",
+        category="Action",
+        description="Plays an audio file when triggered.",
+        input_ports=[("trigger", "midi")],
+        output_ports=[],
+        default_config={
+            "file": "",
+            "trigger_value": None,
+            "min_value": None,
+            "trigger_on_note_off": False,
+        },
+    ),
 ]
 
 _TEMPLATE_MAP: Dict[str, NodeTemplate] = {template.type: template for template in _TEMPLATES}

@@ -49,6 +49,7 @@ midas
 - Cable-style connections with selectable/erasable links between nodes.
 - Action engine that maps incoming events to configured runtime actions.
 - Workspace persistence (`.json`) with presets accessible from the File menu.
+- Auto-saves your current workspace on exit and supports import/export via JSON files.
 - Multiple simultaneous MIDI inputs, virtual device groups, and per-control learning with reusable profiles.
 
 ## Tips

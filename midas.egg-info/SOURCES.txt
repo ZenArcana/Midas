@@ -8,6 +8,8 @@ app/actions/base.py
 app/actions/command.py
 app/actions/engine.py
 app/actions/script.py
+app/actions/shortcut.py
+app/actions/sound.py
 app/actions/volume.py
 app/midi/__init__.py
 app/midi/controller.py
@@ -21,9 +23,13 @@ app/nodes/graph.py
 app/storage/__init__.py
 app/storage/presets.py
 app/storage/workspace_store.py
+app/system/__init__.py
+app/system/audio.py
+app/system/virtual_audio.py
 app/ui/__init__.py
 app/ui/connection_graphics.py
 app/ui/device_panel.py
+app/ui/group_graphics.py
 app/ui/main_window.py
 app/ui/node_editor.py
 app/ui/node_graphics.py
