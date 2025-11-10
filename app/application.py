@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 from typing import Optional
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 
@@ -33,5 +35,10 @@ def create_application(argv: Optional[list[str]] = None) -> QApplication:
     app.setApplicationName("Midas")
     app.setOrganizationName("Midas")
     app.setOrganizationDomain("midas.local")
+
+    icon_path = Path(__file__).resolve().parents[2] / "Icon.svg"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
     return app
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set
 
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -43,6 +43,10 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.setWindowTitle("Midas")
         self.setMinimumSize(1024, 720)
+
+        icon_path = Path(__file__).resolve().parents[2] / "Icon.svg"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         self._graph = NodeGraph()
         self._midi_manager = MidiDeviceManager()
