@@ -95,6 +95,15 @@ _TEMPLATES: List[NodeTemplate] = [
         default_config={"command": "", "shell": False, "cwd": ""},
     ),
     NodeTemplate(
+        type="action.shortcut",
+        title="Shortcut Trigger",
+        category="Action",
+        description="Simulates a keyboard shortcut using xdotool.",
+        input_ports=[("trigger", "midi")],
+        output_ports=[],
+        default_config={"sequence": ""},
+    ),
+    NodeTemplate(
         type="action.sound",
         title="Sound Effect",
         category="Action",
