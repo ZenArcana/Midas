@@ -3,8 +3,12 @@ from __future__ import annotations
 import sys
 from typing import NoReturn
 
-from . import create_application
-from .ui.main_window import MainWindow
+try:
+    from . import create_application
+    from .ui.main_window import MainWindow
+except ImportError:  # pragma: no cover - fallback when executed as a script
+    from app import create_application  # type: ignore[no-redef]
+    from app.ui.main_window import MainWindow  # type: ignore[no-redef]
 
 
 def main() -> NoReturn:

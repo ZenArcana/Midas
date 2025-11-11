@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent, QPainter, QPen
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QInputDialog, QMenu, QWidget
 
@@ -413,7 +413,8 @@ class NodeEditorView(QGraphicsView):
         self.setScene(self._scene)
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
-        self.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.setDragMode(QGraphicsView.RubberBandDrag)
+        self.setRubberBandSelectionMode(Qt.IntersectsItemShape)
         self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.AnchorViewCenter)
@@ -423,6 +424,10 @@ class NodeEditorView(QGraphicsView):
         self._scene.selectionChanged.connect(self._emit_selection_changed)
 
         self._pending_connection: Optional[PendingConnection] = None
+        self._space_bar_down = False
+        self._panning = False
+        self._pan_button = Qt.NoButton
+        self._last_pan_point = QPoint()
 
         self._populate_from_graph()
         self._scene.sync_connections()
@@ -525,6 +530,11 @@ class NodeEditorView(QGraphicsView):
             self.add_node(str(node_type), scene_pos)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # type: ignore[override]
+        if event.key() == Qt.Key_Space and not self._space_bar_down:
+            self._space_bar_down = True
+            self.viewport().setCursor(Qt.OpenHandCursor)
+            event.accept()
+            return
         if event.key() in {Qt.Key_Delete, Qt.Key_Backspace}:
             self._delete_selected_items()
             event.accept()
@@ -535,6 +545,15 @@ class NodeEditorView(QGraphicsView):
             return
         super().keyPressEvent(event)
 
+    def keyReleaseEvent(self, event) -> None:  # type: ignore[override]
+        if event.key() == Qt.Key_Space and self._space_bar_down:
+            self._space_bar_down = False
+            if not self._panning:
+                self.viewport().unsetCursor()
+            event.accept()
+            return
+        super().keyReleaseEvent(event)
+
     def wheelEvent(self, event) -> None:  # type: ignore[override]
         if event.modifiers() & Qt.ControlModifier:
             zoom_factor = 1.2 if event.angleDelta().y() > 0 else 1 / 1.2
@@ -542,12 +561,40 @@ class NodeEditorView(QGraphicsView):
         else:
             super().wheelEvent(event)
 
+    def mousePressEvent(self, event) -> None:  # type: ignore[override]
+        if event.button() == Qt.MiddleButton or (event.button() == Qt.LeftButton and self._space_bar_down):
+            self._panning = True
+            self._pan_button = event.button()
+            self._last_pan_point = event.pos()
+            self.viewport().setCursor(Qt.ClosedHandCursor)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
     def mouseMoveEvent(self, event) -> None:  # type: ignore[override]
+        if self._panning:
+            delta = event.pos() - self._last_pan_point
+            self._last_pan_point = event.pos()
+            h_bar = self.horizontalScrollBar()
+            v_bar = self.verticalScrollBar()
+            h_bar.setValue(h_bar.value() - delta.x())
+            v_bar.setValue(v_bar.value() - delta.y())
+            event.accept()
+            return
         if self._pending_connection is not None:
             self._scene.update_temporary_connection(self.mapToScene(event.pos()))
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event) -> None:  # type: ignore[override]
+        if self._panning and event.button() == self._pan_button:
+            self._panning = False
+            self._pan_button = Qt.NoButton
+            if self._space_bar_down:
+                self.viewport().setCursor(Qt.OpenHandCursor)
+            else:
+                self.viewport().unsetCursor()
+            event.accept()
+            return
         if self._pending_connection is not None:
             scene_pos = self.mapToScene(event.pos())
             target = self._scene.port_at(scene_pos, "input")
