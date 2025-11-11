@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set
 
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QActionGroup, QIcon, QColor, QPalette
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QHBoxLayout,
     QMainWindow,
@@ -48,6 +49,10 @@ class MainWindow(QMainWindow):
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
 
+        app = QApplication.instance()
+        self._default_palette: Optional[QPalette] = QPalette(app.palette()) if app else None
+        self._default_style: Optional[str] = app.style().objectName() if app else None
+
         self._graph = NodeGraph()
         self._midi_manager = MidiDeviceManager()
         self._profile_store = ControlProfileStore()
@@ -64,6 +69,10 @@ class MainWindow(QMainWindow):
         self._default_workspace_path.parent.mkdir(parents=True, exist_ok=True)
         self._status_bar = self.statusBar()
         self._status_bar.showMessage("Ready")
+
+        self._theme: str = "light"
+        self._theme_actions: Dict[str, QAction] = {}
+
         self._active_device_ids: Set[str] = set()
         self._suppress_selection_updates = False
         self._pending_learn: Optional[str] = None
@@ -140,6 +149,20 @@ class MainWindow(QMainWindow):
         nodes_menu.addSeparator()
         delete_action = nodes_menu.addAction("Delete Selected Nodes")
         delete_action.triggered.connect(self._delete_selected_nodes)  # type: ignore[arg-type]
+
+        view_menu = self.menuBar().addMenu("&View")
+        theme_menu = view_menu.addMenu("&Theme")
+        theme_group = QActionGroup(self)
+        theme_group.setExclusive(True)
+        for theme_key, label in (("light", "Light"), ("dark", "Dark")):
+            action = theme_menu.addAction(label)
+            action.setCheckable(True)
+            theme_group.addAction(action)
+            action.triggered.connect(
+                lambda checked, theme=theme_key: self._on_theme_action(theme, checked)
+            )
+            self._theme_actions[theme_key] = action
+        self._update_theme_actions()
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("&About", self)
@@ -229,6 +252,69 @@ class MainWindow(QMainWindow):
                 "through an intuitive node-based workflow."
             ),
         )
+
+    def _on_theme_action(self, theme: str, checked: bool) -> None:
+        if not checked:
+            return
+        self._set_theme(theme)
+
+    def _set_theme(self, theme: str) -> None:
+        if theme == self._theme:
+            return
+        self._theme = theme
+        self._apply_theme(theme)
+        self._update_theme_actions()
+        self._status_bar.showMessage(f"{theme.capitalize()} theme applied.", 4000)
+
+    def _update_theme_actions(self) -> None:
+        for theme_key, action in self._theme_actions.items():
+            action.setChecked(theme_key == self._theme)
+
+    def _apply_theme(self, theme: str) -> None:
+        app = QApplication.instance()
+        if app is None:
+            return
+
+        if theme == "dark":
+            app.setStyle("Fusion")
+            app.setPalette(self._build_dark_palette())
+        else:
+            if self._default_style:
+                app.setStyle(self._default_style)
+            if self._default_palette is not None:
+                app.setPalette(self._default_palette)
+            else:
+                app.setPalette(app.style().standardPalette())
+
+    def _build_dark_palette(self) -> QPalette:
+        palette = QPalette()
+        base_color = QColor(37, 37, 38)
+        alt_base_color = QColor(45, 45, 48)
+        text_color = QColor(220, 220, 220)
+        disabled_text = QColor(128, 128, 128)
+        highlight_color = QColor(103, 153, 255)
+
+        palette.setColor(QPalette.Window, alt_base_color)
+        palette.setColor(QPalette.WindowText, text_color)
+        palette.setColor(QPalette.Base, base_color)
+        palette.setColor(QPalette.AlternateBase, alt_base_color)
+        palette.setColor(QPalette.ToolTipBase, alt_base_color)
+        palette.setColor(QPalette.ToolTipText, text_color)
+        palette.setColor(QPalette.Text, text_color)
+        palette.setColor(QPalette.Button, alt_base_color)
+        palette.setColor(QPalette.ButtonText, text_color)
+        palette.setColor(QPalette.BrightText, QColor(Qt.red))
+        palette.setColor(QPalette.Link, QColor(140, 180, 255))
+        palette.setColor(QPalette.Highlight, highlight_color)
+        palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
+        palette.setColor(QPalette.PlaceholderText, QColor(180, 180, 180))
+
+        palette.setColor(QPalette.Disabled, QPalette.Text, disabled_text)
+        palette.setColor(QPalette.Disabled, QPalette.ButtonText, disabled_text)
+        palette.setColor(QPalette.Disabled, QPalette.WindowText, disabled_text)
+        palette.setColor(QPalette.Disabled, QPalette.HighlightedText, disabled_text)
+
+        return palette
 
     def _show_quick_start(self) -> None:
         QMessageBox.information(
