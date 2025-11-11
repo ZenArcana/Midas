@@ -511,6 +511,18 @@ class NodeInspector(QGroupBox):
         path_row.addWidget(browse_button)
         form.addRow("Audio file", path_row)
 
+        volume_spin = QDoubleSpinBox()
+        volume_spin.setRange(0.0, 1.0)
+        volume_spin.setSingleStep(0.05)
+        volume_spin.setDecimals(2)
+        try:
+            current_volume = float(node.config.get("volume", 1.0))
+        except (TypeError, ValueError):
+            current_volume = 1.0
+        volume_spin.setValue(max(0.0, min(1.0, current_volume)))
+        volume_spin.valueChanged.connect(lambda value: self._set_config_value(node, "volume", float(value)))
+        form.addRow("Volume", volume_spin)
+
         trigger_spin = QSpinBox()
         trigger_spin.setRange(-1, 127)
         trigger_spin.setSpecialValueText("Any value")

@@ -67,12 +67,19 @@ class VolumeAction(BaseAction):
         self._last_value: Optional[int] = None
 
     def handle_event(self, event: MidiEvent, node: Node, context: ActionContext) -> None:
-        if event.value is None:
+        raw_value: Optional[int] = event.value
+        if raw_value is None:
+            if event.velocity is not None:
+                raw_value = int(event.velocity)
+            elif event.message_type in {"note_on", "note_off"}:
+                raw_value = 127 if event.message_type == "note_on" else 0
+
+        if raw_value is None:
             return
 
-        if self._last_value == event.value:
+        if self._last_value == raw_value:
             return
-        self._last_value = event.value
+        self._last_value = raw_value
 
         input_min = int(node.config.get("input_min", 0))
         input_max = int(node.config.get("input_max", 127))
@@ -82,7 +89,7 @@ class VolumeAction(BaseAction):
         target_id = node.config.get("target_id")
         target_kind = str(node.config.get("target_kind") or "default")
 
-        normalized = (event.value - input_min) / max(1, (input_max - input_min))
+        normalized = (raw_value - input_min) / max(1, (input_max - input_min))
         normalized = max(0.0, min(1.0, normalized))
         level = output_min + normalized * (output_max - output_min)
         self._controller.set_level(level, target_id=str(target_id) if target_id else None, target_kind=target_kind)

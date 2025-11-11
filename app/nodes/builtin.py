@@ -112,6 +112,7 @@ _TEMPLATES: List[NodeTemplate] = [
         output_ports=[],
         default_config={
             "file": "",
+            "volume": 1.0,
             "trigger_value": None,
             "min_value": None,
             "trigger_on_note_off": False,
